@@ -83,11 +83,6 @@ module AndorLib
 end
 
 win = Gtk::Window.new('Spectrometer')
-win.signal_connect('destroy') {Gtk.main_quit}
-box = Gtk::Box.new(:vertical)
-i = Gtk::Image.new './temp.png'
-b = Gtk::Button.new(label: 'Start acquisition')
-
 
 t0 = Time.now
 # Select camera
@@ -125,42 +120,30 @@ AndorLib.SetSingleTrack 100, 10
 AndorLib.SetSingleTrackHBin(1)
 puts "Parameter setting took #{Time.now - t1}"
 
-delay = 0.00
+delay = 0
 datasize = 1600
 running = true
 Signal.trap(:INT) {running = false}
-
-b.signal_connect('clicked') do
-  Thread.new do
-    while running do
-      puts "Acqu"
-      # Acquire
-      #puts "Start acq #{Time.now.to_f}"
-      AndorLib.StartAcquisition
-      dataptr = FFI::MemoryPointer.new(:int, datasize)
-      # Wait till ready
-      statusptr = FFI::MemoryPointer.new(:int)
-      AndorLib.GetStatus statusptr
-      while statusptr.read_int == 20072
-        AndorLib.GetStatus statusptr
-      end
-      #puts "Acq done #{Time.now.to_f}"
-      AndorLib.GetAcquiredData dataptr, datasize
-      data = dataptr.read_array_of_int datasize
-      #puts "Data acquired #{Time.now.to_f}"
-      File.open('temp.dat', 'w') {|f| f.puts data}
-      `gnuplot update.gnuplot`
-      sleep delay
-      i.set_from_file './temp.png'
-    end
+while running do
+  puts "Acqu"
+  # Acquire
+  #puts "Start acq #{Time.now.to_f}"
+  AndorLib.StartAcquisition
+  dataptr = FFI::MemoryPointer.new(:int, datasize)
+  # Wait till ready
+  statusptr = FFI::MemoryPointer.new(:int)
+  AndorLib.GetStatus statusptr
+  while statusptr.read_int == 20072
+    AndorLib.GetStatus statusptr
   end
+  #puts "Acq done #{Time.now.to_f}"
+  AndorLib.GetAcquiredData dataptr, datasize
+  data = dataptr.read_array_of_int datasize
+  #puts "Data acquired #{Time.now.to_f}"
+  File.open('temp.dat', 'w') {|f| f.puts data}
+  `gnuplot update.gnuplot`
+  sleep delay
 end
-
-win.add box
-box.pack_start b
-box.pack_start i
-win.show_all
-Gtk.main
 
 puts Time.now
 at_exit {
