@@ -87,6 +87,10 @@ win.signal_connect('destroy') {Gtk.main_quit}
 box = Gtk::Box.new(:vertical)
 i = Gtk::Image.new './temp.png'
 b = Gtk::Button.new(label: 'Start acquisition')
+<<<<<<< HEAD
+=======
+s = Gtk::Button.new(label: 'Stop acquisition')
+>>>>>>> a8076ed (10Nov)
 
 
 t0 = Time.now
@@ -109,7 +113,7 @@ puts "Initialization took #{Time.now - t1}"
 t1 = Time.now
 AndorLib.SetReadMode 3 
 AndorLib.SetAcquisitionMode 1 # 
-exp_time = 0.05
+exp_time = 0.5
 puts "Exposure time #{exp_time} seconds"
 AndorLib.SetExposureTime exp_time # In seconds
 ptr1 = FFI::MemoryPointer.new(:int)
@@ -127,10 +131,11 @@ puts "Parameter setting took #{Time.now - t1}"
 
 delay = 0.00
 datasize = 1600
-running = true
+running = false
 Signal.trap(:INT) {running = false}
-
+s.signal_connect('clicked') {running = false}
 b.signal_connect('clicked') do
+  running = true
   Thread.new do
     while running do
       puts "Acqu"
@@ -147,6 +152,7 @@ b.signal_connect('clicked') do
       #puts "Acq done #{Time.now.to_f}"
       AndorLib.GetAcquiredData dataptr, datasize
       data = dataptr.read_array_of_int datasize
+      data.reverse!
       #puts "Data acquired #{Time.now.to_f}"
       File.open('temp.dat', 'w') {|f| f.puts data}
       `gnuplot update.gnuplot`
@@ -158,6 +164,7 @@ end
 
 win.add box
 box.pack_start b
+box.pack_start s
 box.pack_start i
 win.show_all
 Gtk.main
