@@ -52,9 +52,17 @@ def parse_header(path)
         enums.push({name: enum_name, members: member_buffer})
       end
 
+    # Looks like a function declaration
     when /(?:unsigned)? int (\S+)\(([^\)]*)\);/
       match = source[ln].match /(?:unsigned)? int (\S+)\(([^\)]*)\);/
-      functions.push({line: ln, name: match[1], args: match[2]})
+      func_name = match[1]
+      args = match[2].split(/\s?,\s?/).map do |arg|
+        type, symbol = arg.match(/^(\S[\S\s]*) (\S+)$/)[1..2]
+        pointer = type.include? "*"
+        type.gsub!(/\s*\*\s*$/, '')
+        [symbol, type, pointer]
+      end
+      functions.push({line: ln, name: func_name, args: args})
     when /^\/\//
       # Comments
     when /^\s+$/
