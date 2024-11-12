@@ -78,13 +78,14 @@ def parse_header(path)
 
     # Looks like a function declaration
     when /(?:unsigned)? int (\S+)\(([^\)]*)\);/
-      match = source[ln].match /(?:unsigned)? int (\S+)\(([^\)]*)\);/
-      func_name = match[1]
-      args = match[2].split(/\s?,\s?/).map do |arg|
+      match = source[ln].match /([\s\S]+) (\S+)\(([^\)]*)\);/
+      rt_type = match[1]
+      func_name = match[2]
+      args = match[3].split(/\s?,\s?/).map do |arg|
         symbol, type, pointer = parse_symbol_dec(arg)
         {symbol: symbol, type: type, pointer: pointer}
       end
-      functions.push({line: ln, name: func_name, args: args})
+      functions.push({line: ln, name: func_name, args: args, return: rt_type})
     when /^\/\//
       # Comments
     when /^\s+$/
@@ -108,6 +109,77 @@ def parse_header(path)
   }
 end
 
+# context should be a parsed header hash. We need the constants to intepret some type aliases
+# Input a function hash {:line, :name, :args, :return}
+# Returns argument list, with pointers prepared in place
+def type_conv(function, context)
+  case function[:return]
+  when 'unsigned int'
+    rt_type = :int
+  end
+
+  arg_list = []
+  function[:args].each do |arg|
+    # By reference
+    if arg[:pointer]
+      case arg[:type]
+      when 'char'
+        arg_list.push({name: arg[:symbol], type: :string}) # This seems to be handled well by ffi
+      when 'int'
+        arg_list.push({name: arg[:symbol], type: :pointer, pointer: FFI::MemoryPointer.new(:int)})
+      end
+    # By Value
+    else
+      case arg[:type]
+      when 'float'
+        arg_list.push({name: arg[:symbol], type: :float})
+      end
+    end
+
+  end
+    
+  [arg_list, rt_type]
+end
+
+atmcd_module = Object.const_set("AndorLib", Module.new)
+atmcd_module.extend FFI::Library
+atmcd_module.ffi_lib 'libandor'
+
 atmcdLXd = parse_header("../include/atmcdLXd.h")
+available_symbols = File.open('./specdata/libandor_symbols', 'r'){|f| f.readlines.map{|line| line.chomp.split(' T ')[1]}}
+#some_funcs = atmcdLXd[:functions].filter {|func| func[:name] == "GetDetector"}
+#some_func = some_funcs[0]
+
+atmcdLXd[:functions].each do |some_func|
+arg_list, rt_type = type_conv(some_func, atmcdLXd)
+# Catch non-existing symbols
+if !available_symbols.include? some_func[:name]
+  puts "#{some_func[:name]} is not found :~~"
+  next
+end
+# Attachment
+atmcd_module.attach_function("i_"+some_func[:name], some_func[:name], arg_list.map{|arg| arg[:type]}, rt_type)
+arg_in = {} # Received from wrapper func
+# Construct arg list to pass, place the arg_in values to value passes
+param = arg_list.map do |arg|
+  if arg[:type] == :pointer
+    arg[:pointer]
+  else
+    arg_in[arg[:name]]
+  end
+end
+# Wrapper
+atmcd_module.define_singleton_method(some_func[:name]) do |arg_in|
+  ret = AndorLib.send("i_"+some_func[:name], *param)
+  arg_out = {ret: ret}
+  arg_list.each do |arg|
+    if arg[:type] == :pointer
+      arg_out[arg[:name]] = arg[:pointer].read_int # This needs to depend on some_func[:args][i][:type] !!
+    end
+  end
+  arg_out
+end
+end
 
 binding.pry
+

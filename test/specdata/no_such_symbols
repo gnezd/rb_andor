@@ -1,0 +1,30 @@
+GetCameraEventStatus is not found :~~
+GetESDEventStatus is not found :~~
+GetMSTimingsData is not found :~~
+GetNewData8 is not found :~~
+SaveAsSPC is not found :~~
+SetAcqStatusEvent is not found :~~
+SetDriverEvent is not found :~~
+SetESDEvent is not found :~~
+SetFrontEndEvent is not found :~~
+SetNextAddress16 is not found :~~
+SetOverTempEvent is not found :~~
+SetPCIMode is not found :~~
+SetPhosphorEvent is not found :~~
+SetSaturationEvent is not found :~~
+SetTECEvent is not found :~~
+SetTemperatureEvent is not found :~~
+SetUserEvent is not found :~~
+UnMapPhysicalAddress is not found :~~
+
+[1mFrom:[0m /home/gnezd/gits/rb_andor/test/dynamic_module_formation.rb:184 :
+
+    [1;34m179[0m:   [32mend[0m
+    [1;34m180[0m:   arg_out
+    [1;34m181[0m: [32mend[0m
+    [1;34m182[0m: [32mend[0m
+    [1;34m183[0m: 
+ => [1;34m184[0m: binding.pry
+    [1;34m185[0m: 
+
+[0G[1] pry(main)> 
