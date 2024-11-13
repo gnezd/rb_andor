@@ -5,8 +5,8 @@ require 'pry'
 def parse_symbol_dec(dec)
   match = dec.match /([\s\S]+) (\S+)$/
   raise " \"#{dec}\"<-- Doesn't look like a declaration" unless match
-  symbol = match[2]
-  pointer = match[1].include? "*"
+  pointer = dec.include? "*"
+  symbol = match[2].gsub('*', '') # 好ㄉ，指標知道了
   type = match[1].gsub(/\s?\*\s?$/, '') # 去尾
   type.gsub!(/^\s+/, '') # 去頭
   [symbol, type, pointer]
@@ -32,6 +32,8 @@ def parse_header(path)
 
   source.each_index do |ln|
     case source[ln]
+    when /^\/\//
+      # Comment. Hope it doesn't fall through?
     when /^#/
       preproc_lines.push ln
       # Match for #define symbol val
@@ -119,6 +121,8 @@ def type_conv(function, context)
   when 'DLL_DEF eATSpectrographReturnCodes WINAPI' # Andor's Win32 implementation
     # Guess it's just an error code return
     rt_type = :int
+  else
+    raise "Return type for #{function} not yet handled"
   end
 
   arg_list = []
