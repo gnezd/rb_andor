@@ -77,7 +77,7 @@ def parse_header(path)
       end
 
     # Looks like a function declaration
-    when /(?:unsigned)? int (\S+)\(([^\)]*)\);/
+    when /([\s\S]+) (\S+)\(([^\)]*)\);/
       match = source[ln].match /([\s\S]+) (\S+)\(([^\)]*)\);/
       rt_type = match[1]
       func_name = match[2]
@@ -116,6 +116,9 @@ def type_conv(function, context)
   case function[:return]
   when 'unsigned int'
     rt_type = :int
+  when 'DLL_DEF eATSpectrographReturnCodes WINAPI' # Andor's Win32 implementation
+    # Guess it's just an error code return
+    rt_type = :int
   end
 
   arg_list = []
@@ -144,7 +147,6 @@ end
 atmcd_module = Object.const_set("AndorLib", Module.new)
 atmcd_module.extend FFI::Library
 atmcd_module.ffi_lib 'libandor'
-
 atmcdLXd = parse_header("../include/atmcdLXd.h")
 available_symbols = File.open('./specdata/libandor_symbols', 'r'){|f| f.readlines.map{|line| line.chomp.split(' T ')[1]}}
 #some_funcs = atmcdLXd[:functions].filter {|func| func[:name] == "GetDetector"}
@@ -180,6 +182,45 @@ atmcd_module.define_singleton_method(some_func[:name]) do |arg_in|
   arg_out
 end
 end
+puts "Andor cam library load complete. Now spectrograph."
 
+atspect_module = Object.const_set("ATSpectrograph", Module.new)
+atspect_module.extend FFI::Library
+atspect_module.ffi_lib 'libatspectrograph'
+atspect = parse_header("../include/atspectrograph.h")
+available_symbols = File.open('./specdata/libatspectrograph_symbols', 'r') {|f| f.readlines.map{|line| line.chomp.split(' T ')[1]}}
+#some_funcs = atmcdLXd[:functions].filter {|func| func[:name] == "GetDetector"}
+#some_func = some_funcs[0]
+
+atspect[:functions].each do |some_func|
+arg_list, rt_type = type_conv(some_func, atspect)
+# Catch non-existing symbols
+if !available_symbols.include? some_func[:name]
+  puts "#{some_func[:name]} is not found :~~"
+  next
+end
+# Attachment
+atspect_module.attach_function("i_"+some_func[:name], some_func[:name], arg_list.map{|arg| arg[:type]}, rt_type)
+arg_in = {} # Received from wrapper func
+# Construct arg list to pass, place the arg_in values to value passes
+param = arg_list.map do |arg|
+  if arg[:type] == :pointer
+    arg[:pointer]
+  else
+    arg_in[arg[:name]]
+  end
+end
+# Wrapper
+atspect_module.define_singleton_method(some_func[:name]) do |arg_in|
+  ret = ATSpectrograph.send("i_"+some_func[:name], *param)
+  arg_out = {ret: ret}
+  arg_list.each do |arg|
+    if arg[:type] == :pointer
+      arg_out[arg[:name]] = arg[:pointer].read_int # This needs to depend on some_func[:args][i][:type] !!
+    end
+  end
+  arg_out
+end
+end
 binding.pry
 
