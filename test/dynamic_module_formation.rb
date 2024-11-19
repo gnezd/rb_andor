@@ -129,17 +129,71 @@ def type_conv(function, context)
   function[:args].each do |arg|
     # By reference
     if arg[:pointer]
+      arg[:type].gsub!(' const', '') # const or not, size shouldn't change
+      arg[:type].gsub!('*', '') # Bye bye stars
       case arg[:type]
-      when 'char'
+      when /(?:const )?char/
         arg_list.push({name: arg[:symbol], type: :string}) # This seems to be handled well by ffi
+      when 'unsigned char'
+        ffi_type = :uchar
+        arg_list.push({name: arg[:symbol], type: :pointer, pointer: FFI::MemoryPointer.new(ffi_type)})
       when 'int'
+        ffi_type = :int
+        arg_list.push({name: arg[:symbol], type: :pointer, pointer: FFI::MemoryPointer.new(ffi_type)})
+      when /unsigned int\s?/
+        ffi_type = :uint
+        arg_list.push({name: arg[:symbol], type: :pointer, pointer: FFI::MemoryPointer.new(ffi_type)})
+      when /(?:const )?at_32/
+        ffi_type = :int32
+        arg_list.push({name: arg[:symbol], type: :pointer, pointer: FFI::MemoryPointer.new(ffi_type)})
+      when 'at_u32'
+        ffi_type = :uint32
+        arg_list.push({name: arg[:symbol], type: :pointer, pointer: FFI::MemoryPointer.new(ffi_type)})
+      when 'at_u64'
+        ffi_type = :uint64
+        arg_list.push({name: arg[:symbol], type: :pointer, pointer: FFI::MemoryPointer.new(ffi_type)})
+      when 'short'
+        ffi_type = :short
+        arg_list.push({name: arg[:symbol], type: :pointer, pointer: FFI::MemoryPointer.new(ffi_type)})
+      when 'long'
+        ffi_type = :long
+        arg_list.push({name: arg[:symbol], type: :pointer, pointer: FFI::MemoryPointer.new(ffi_type)})
+      when 'unsigned long'
+        ffi_type = :ulong
+        arg_list.push({name: arg[:symbol], type: :pointer, pointer: FFI::MemoryPointer.new(ffi_type)})
+      when 'unsigned short'
+        ffi_type = :ushort
+        arg_list.push({name: arg[:symbol], type: :pointer, pointer: FFI::MemoryPointer.new(ffi_type)})
+      when 'float'
+        ffi_type = :float
+        arg_list.push({name: arg[:symbol], type: :pointer, pointer: FFI::MemoryPointer.new(ffi_type)})
+      when 'double'
+        ffi_type = :double
+        arg_list.push({name: arg[:symbol], type: :pointer, pointer: FFI::MemoryPointer.new(ffi_type)})
+      when /void\**/
+        arg_list.push({name: arg[:symbol], type: :pointer, pointer: FFI::MemoryPointer.new(:pointer)})
+      when 'ColorDemosaicInfo'
+        arg_list.push({name: arg[:symbol], type: :pointer, pointer: FFI::MemoryPointer.new(:int, 6)})
+      when 'AndorCapabilities'
+        arg_list.push({name: arg[:symbol], type: :pointer, pointer: FFI::MemoryPointer.new(:uint32, 13)})
+      when 'SYSTEMTIME'
+        arg_list.push({name: arg[:symbol], type: :pointer, pointer: FFI::MemoryPointer.new(:ushort, 8)})
+      when 'WhiteBalanceInfo'
+        arg_list.push({name: arg[:symbol], type: :pointer, pointer: FFI::MemoryPointer.new(:int, 9)})
+      when 'eATSpectrographShutterMode'
         arg_list.push({name: arg[:symbol], type: :pointer, pointer: FFI::MemoryPointer.new(:int)})
+      when 'eATSpectrographPortPosition'
+        arg_list.push({name: arg[:symbol], type: :pointer, pointer: FFI::MemoryPointer.new(:int)})
+      else
+        raise "Type #{arg[:type]}#{arg[:pointer]? '*':''} not handled during attatching #{function}"
       end
     # By Value
     else
       case arg[:type]
       when 'float'
         arg_list.push({name: arg[:symbol], type: :float})
+      when 'int'
+        arg_list.push({name: arg[:symbol], type: :int})
       end
     end
 
@@ -155,6 +209,8 @@ atmcdLXd = parse_header("../include/atmcdLXd.h")
 available_symbols = File.open('./specdata/libandor_symbols', 'r'){|f| f.readlines.map{|line| line.chomp.split(' T ')[1]}}
 #some_funcs = atmcdLXd[:functions].filter {|func| func[:name] == "GetDetector"}
 #some_func = some_funcs[0]
+
+#binding.pry
 
 atmcdLXd[:functions].each do |some_func|
 arg_list, rt_type = type_conv(some_func, atmcdLXd)
