@@ -9,7 +9,7 @@ class RbLib
     @header = parse_header(header)
     
     # type
-    @type_rules = options[:type_rules] ? options[:type_rules] : {}
+    @type_rules = options[:type_rules] ? options[:type_rules] : []
 
   end
   
@@ -21,9 +21,10 @@ class RbLib
       layouts = (struct[:members].map {|member| [member[:symbol].to_sym, type_to_native(member[:type])]}).reduce(:+)
       struct_class_dec_code = <<-SC_CODE
       class #{struct_name} < FFI::Struct
-        layout #{layouts.join(', ')}
+        layout #{layouts.inspect[1..-2]} # Very hacky
       end
       SC_CODE
+      puts struct_class_dec_code
       eval struct_class_dec_code
     end
   end
@@ -139,10 +140,17 @@ class RbLib
   end
 
   def type_to_native(type)
-    if @type_table.keys.include?(type)
-      return @type_table[type] 
-    elsif !type.include?(' ') # No space, try direct symbol conversion
-      type.to_sym
+    puts "Asking native type for type '#{type}'"
+    native_type = type
+    # In type_rules?
+    filtered = @type_rules.filter {|rule| rule[0] == type}
+    native_type = filtered[1] unless filtered.empty?
+
+    # Manual try
+    native_type.gsub!(/^unsigned /, 'u')
+
+    if !native_type.include?(' ') # No space, try direct symbol conversion
+      return native_type.to_sym
     else
       raise "Type #{type} not handled!"
     end
