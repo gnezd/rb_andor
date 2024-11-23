@@ -25,7 +25,7 @@ class RbLib
       end
       SC_CODE
       puts struct_class_dec_code
-      eval struct_class_dec_code
+      @module.module_eval struct_class_dec_code
     end
   end
 
@@ -144,7 +144,7 @@ class RbLib
     native_type = type
     # In type_rules?
     filtered = @type_rules.filter {|rule| rule[0] == type}
-    native_type = filtered[1] unless filtered.empty?
+    native_type = filtered[0][1] unless filtered.empty?
 
     # Manual try
     native_type.gsub!(/^unsigned /, 'u')
@@ -157,7 +157,32 @@ class RbLib
   end
 
   # Prepare argument and pointers(if exists) for a function
-  def prep_arg(function)
+  def attatch_func(function)
+    # Plan for pointers
+    # If arg_type contains pointers, the wrapper function is responsible of creating them and dereferencing them
+    # And return like ret, {ptrname: ptr_derefed_value}
+    debug = true
+    puts "Function #{function[:name]} has arguments: #{function[:args]}" if debug
     
+    # Attatch function internal
+    arg_type_ffi = function[:args].map {|arg| arg[:pointer] ? :pointer : type_to_native(arg[:type])}
+    puts "Type conversion to native for ffi: [#{arg_type_ffi.join(' ')}]" if debug
+    @module.attach_function("i_#{function[:name]}}", function[:name], arg_type_ffi, type_to_native(function[:return]))
+
+    # Now wrapper function
+    # Heuristic here: if there is pointer called arr, followed by 'size', make it a pointer to array...
+    pointer_types = function[:args].filter{|arg| arg[:pointer]}.map{|arg| type_to_native(arg[:type])}
+    # Wrapper definition needs to do
+    # 1. Initiate pointers
+    # 2. Fill their values with {args} if key present
+    # 3. Invoke the i_ functions
+    # 4. Dereference pointers and place back to {arg}
+    # 5. return [ret, {arg}]
+    wrapper_def = <<-EOWRAP
+    def #{function[:name]}(args)
+
+
+    end  
+    EOWRAP
   end
 end

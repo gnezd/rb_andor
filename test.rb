@@ -12,4 +12,8 @@ type_macros = [
 ]
 andorlib.type_rules += type_macros
 
+andorlib.make_structs # 先不自動
+func = andorlib.header[:functions].find {|f| f[:name] == 'GetAcquiredData'}
+andorlib.attatch_func func
+
 binding.pry
