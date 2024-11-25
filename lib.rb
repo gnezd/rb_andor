@@ -69,7 +69,7 @@ class RbLib
 
       # Defining anonymous datatypes while aliasing?
       # OK I know this is very wrong but works for this particular
-      when /^(?:\s*)typedef (struct|enum)(?:\s){?/ # Riskily taking optional { left bracket
+      when /^(?:\s*)typedef (struct|enum)(?:\s)(?:\S+\s)?{?/ # Riskily taking optional { left bracket
         type = source[ln].match(/^(?:\s*)typedef (struct|enum)(?:\s){?/)[1]
         case type
         when 'struct'
@@ -80,7 +80,7 @@ class RbLib
           member_buffer = []
           in_enum += 1
         end
-      when /}(?:\s)(\S+);/
+      when /}(?:\s)?(\S+);/
         # Parse buffer lines
         if in_struct > 0
           in_struct -= 1
@@ -89,7 +89,7 @@ class RbLib
             symbol, type, pointer = parse_symbol_dec(chompped)
             {line: ln, symbol: symbol, type: type, pointer: pointer}
           end
-          struct_name = source[ln].match(/}(?:\s)(\S+);/)[1]
+          struct_name = source[ln].match(/}(?:\s)?(\S+)\s?;/)[1]
           structs.push({name: struct_name, members: members})
         elsif in_enum > 0
           in_enum -= 1
@@ -99,7 +99,7 @@ class RbLib
             key, value = chomped.split(/\s?=\s?/)
             members[key] = value
           end
-          enum_name = source[ln].match(/}(?:\s)(\S+);/)[1]
+          enum_name = source[ln].match(/}(?:\s)?(\S+)\s?;/)[1]
           enums.push({name: enum_name, members: members})
         end
 
@@ -108,8 +108,9 @@ class RbLib
         match = source[ln].match /([\s\S]+) (\S+)\(([^\)]*)\);/
         rt_type = match[1]
         func_name = match[2]
+        force_string = !(func_name =~ /^ATSpectrograph/)
         args = match[3].split(/\s?,\s?/).map do |arg|
-          symbol, type, pointer = parse_symbol_dec(arg)
+          symbol, type, pointer = parse_symbol_dec(arg, force_string)
           {symbol: symbol, type: type, pointer: pointer}
         end
         functions.push({line: ln, name: func_name, args: args, return: rt_type})
@@ -137,7 +138,7 @@ class RbLib
   end
 
   # Parse symbol declaration
-  def parse_symbol_dec(dec)
+  def parse_symbol_dec(dec, force_str = true)
     match = dec.match /([\s\S]+) (\S+)$/
     raise " \"#{dec}\"<-- Doesn't look like a declaration" unless match
     pointer = dec.include? "*"
@@ -146,7 +147,7 @@ class RbLib
     type.gsub!(/^\s+/, '') # 去頭
     type.gsub!(/\s?const\s?/, '') # Don't care if const
 
-    if pointer && type =='char'
+    if pointer && type =='char' && force_str
       type = 'string'
       pointer = false
     end
@@ -197,9 +198,12 @@ class RbLib
     pointer_types = []
     function[:args].filter{|arg| arg[:pointer]}.each do |arg|
      if arg[:pointer] && arg[:symbol] == 'arr' && function[:args].map{|arg| arg[:symbol]}.include?('size')
-       pointer_types.push [type_to_native(arg[:type]), :size]
+      pointer_types.push [type_to_native(arg[:type]), :size]
+     elsif arg[:symbol] =~ /description|serial|blaze|info/ # Catch ATSpectrograph C-style strings
+      pointer_types.push [:char, :size]
      elsif arg[:pointer] && arg[:type] == 'char'
-      # Do nothing. String as :string and not :char pointer
+      # Do nothing. String as :string and not :char pointer for AndorLib
+      pointer_types.push [:char, 1] if function[:name] =~ /^ATSpectrograph/
      else
        pointer_types.push [type_to_native(arg[:type]), 1] # Assume single cell MemoryPointer
      end
@@ -212,13 +216,19 @@ class RbLib
     # 5. return [ret, {arg}]
     wrapper_def = <<-EOWRAP
     def self.#{function[:name]}(args_in = {})
+      args_in.keys.each do |k|
+        if k == :maxDescStrLen || k == :maxSerialStrLen || k == :maxBlazeStrLen || k == :maxInfoLen
+          args_in[:size] = args_in[k]
+        end
+      end
+
       args_dec = #{function[:args]}
       pointers = #{pointer_types}.map {|entry| entry + [nil]}
       pointers.each do |pointer|
         if pointer[1] == :size
-          pointer[2] = FFI::MemoryPointer.new(pointer[0], args_in[:size])
+          pointer[2] = FFI::MemoryPointer.new(pointer[0], args_in[:size], 0)
         else
-          pointer[2] = FFI::MemoryPointer.new(pointer[0])
+          pointer[2] = FFI::MemoryPointer.new(pointer[0], pointer[1])
         end
       end
 
