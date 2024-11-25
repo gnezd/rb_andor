@@ -16,4 +16,6 @@ andorlib.make_structs # 先不自動
 func = andorlib.header[:functions].find {|f| f[:name] == 'GetAcquiredData'}
 andorlib.attatch_func func
 
+args = {size: 10}
+ret, argsss = AndorLib.GetAcquiredData args
 binding.pry

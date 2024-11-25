@@ -167,11 +167,18 @@ class RbLib
     # Attatch function internal
     arg_type_ffi = function[:args].map {|arg| arg[:pointer] ? :pointer : type_to_native(arg[:type])}
     puts "Type conversion to native for ffi: [#{arg_type_ffi.join(' ')}]" if debug
-    @module.attach_function("i_#{function[:name]}}", function[:name], arg_type_ffi, type_to_native(function[:return]))
+    @module.attach_function("i_#{function[:name]}", function[:name], arg_type_ffi, type_to_native(function[:return]))
 
     # Now wrapper function
     # Heuristic here: if there is pointer called arr, followed by 'size', make it a pointer to array...
-    pointer_types = function[:args].filter{|arg| arg[:pointer]}.map{|arg| type_to_native(arg[:type])}
+    pointer_types = []
+    function[:args].filter{|arg| arg[:pointer]}.each do |arg|
+     if arg[:pointer] && arg[:symbol] == 'arr' && function[:args].map{|arg| arg[:symbol]}.include?('size')
+       pointer_types.push [type_to_native(arg[:type]), :size]
+     else
+       pointer_types.push type_to_native(arg[:type])
+     end
+    end
     # Wrapper definition needs to do
     # 1. Initiate pointers
     # 2. Fill their values with {args} if key present
@@ -179,10 +186,50 @@ class RbLib
     # 4. Dereference pointers and place back to {arg}
     # 5. return [ret, {arg}]
     wrapper_def = <<-EOWRAP
-    def #{function[:name]}(args)
+    def self.#{function[:name]}(args_in)
+      args_dec = #{function[:args]}
+      pointer_types = #{pointer_types}
+      pointers = []
+      pointer_types.each do |ptr_dec|
+        if ptr_dec[1] == :size
+          ptr = FFI::MemoryPointer.new(ptr_dec[0], args_in[:size])
+        else
+          ptr = FFI::MemoryPointer.new(ptr_dec[0])
+        end
+        pointers.push(ptr)
+      end
 
+      args = []
+      args_dec.each do |arg|
+        if arg[:pointer]
+          args.push pointers.shift
+          args.last.write(:int, args_in[arg[:symbol]]) if args_in[arg[:symbol]]
+        else
+          args.push args_in[arg[:symbol].to_sym] 
+        end
+      end
+      ret = i_#{function[:name]}(*args)
+      
+      raise "pointers[] should be empty but isn't!" unless pointers == []
+      pointers = args.filter {|arg| arg.is_a? FFI::MemoryPointer}
+      arg_out = {}
+      args_dec.each do |arg|
+        if arg[:pointer]
+          ptr = pointers.shift
+          ptr_spec = pointer_types.shift
+          if ptr_spec[1] == :size
+            value = eval("ptr.read_array_of_\#{ptr_spec[0]}(\#{args_in[:size]})")
+          else
+            value = eval("ptr.read\#{ptr_spec[0]}")
+          end
+          eval("arg_out[:\#{arg[:symbol]}] = value")
+        end
+      end
 
+      return ret, arg_out
+      
     end  
     EOWRAP
+    @module.module_eval(wrapper_def)
   end
 end
