@@ -9,8 +9,19 @@ class RbLib
     @header = parse_header(header)
     # AndorLib return code mapping
     if lib =~ /libandor/
-      @module.const_set("LUT_DRV", (@header[:constants].filter {|k, v| k =~ /^DRV\_/}).invert.transform_keys {|k| eval(k)})
+      @module.const_set("LUT_DRV", (@header[:constants].filter {|k, v| k =~ /^DRV\_|^KERN_/}).invert.transform_keys {|k| eval(k)})
       @module.const_set("ANDOR_RETURN", "ret = LUT_DRV[ret]")
+
+      @module.const_set("LUT_AC_ACQMODE", (@header[:constants].filter {|k| k=~ /^AC_ACQMODE/}).invert.transform_keys {|k| eval(k)})
+      @module.const_set("LUT_AC_READMODE", (@header[:constants].filter {|k| k=~ /^AC_READMODE/}).invert.transform_keys {|k| eval(k)})
+      @module.const_set("LUT_AC_TRIGGERMODE", (@header[:constants].filter {|k| k=~ /^AC_TRIGGERMODE/}).invert.transform_keys {|k| eval(k)})
+      @module.const_set("LUT_AC_CAMERATYPE", (@header[:constants].filter {|k| k=~ /^AC_CAMERATYPE/}).invert.transform_keys {|k| eval(k)})
+      @module.const_set("LUT_AC_PIXELMODE", (@header[:constants].filter {|k| k=~ /^AC_PIXELMODE/}).invert.transform_keys {|k| eval(k)})
+      @module.const_set("LUT_AC_SETFUNCTION", (@header[:constants].filter {|k| k=~ /^AC_SETFUNCTION/}).invert.transform_keys {|k| eval(k)})
+      @module.const_set("LUT_AC_GETFUNCTION", (@header[:constants].filter {|k| k=~ /^AC_GETFUNCTION/}).invert.transform_keys {|k| eval(k)})
+      @module.const_set("LUT_AC_FEATURES", (@header[:constants].filter {|k| k=~ /^AC_FEATURES\_/}).invert.transform_keys {|k| eval(k)})
+      @module.const_set("LUT_AC_EMGAIN", (@header[:constants].filter {|k| k=~ /^AC_EMGAIN/}).invert.transform_keys {|k| eval(k)})
+      @module.const_set("LUT_AC_FEATURES2", (@header[:constants].filter {|k| k=~ /^AC_FEATURES2/}).invert.transform_keys {|k| eval(k)})
     end
     
     # type
@@ -67,7 +78,7 @@ class RbLib
       when /^#/
         preproc_lines.push ln
         # Match for #define symbol val
-        match = source[ln].chomp.match(/^#define (\S+) (\S[\s\S]+)$/)
+        match = source[ln].chomp.match(/^#define (\S+) (\S[\s\S]*)$/)
         if match
           constants[match[1]] = match[2]
         end
