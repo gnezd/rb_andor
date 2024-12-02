@@ -7,6 +7,11 @@ class RbLib
     @module.extend FFI::Library
     @module.ffi_lib lib
     @header = parse_header(header)
+    # AndorLib return code mapping
+    if lib =~ /libandor/
+      @module.const_set("LUT_DRV", (@header[:constants].filter {|k, v| k =~ /^DRV\_/}).invert.transform_keys {|k| eval(k)})
+      @module.const_set("ANDOR_RETURN", "ret = LUT_DRV[ret]")
+    end
     
     # type
     @type_rules = options[:type_rules] ? options[:type_rules] : []
@@ -24,7 +29,7 @@ class RbLib
       end
       SC_CODE
       puts struct_class_dec_code
-        @module.module_eval struct_class_dec_code
+      @module.module_eval struct_class_dec_code
     end
   end
 
@@ -214,6 +219,7 @@ class RbLib
     # 3. Invoke the i_ functions
     # 4. Dereference pointers and place back to {arg}
     # 5. return [ret, {arg}]
+
     wrapper_def = <<-EOWRAP
     def self.#{function[:name]}(args_in = {})
       args_in.keys.each do |k|
@@ -245,6 +251,7 @@ class RbLib
         end
       end
       ret = i_#{function[:name]}(*args)
+      #{@module::ANDOR_RETURN if (defined? @module::ANDOR_RETURN)}
       
       ptr_ctr = 0
       arg_out = {}

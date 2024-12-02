@@ -15,7 +15,7 @@ spectrograph_lib.header[:functions].each do |func|
   next unless spectrograph_symbols.include? func[:name]
   spectrograph_lib.attatch_func func
 end
-ATSpectrograph.ATSpectrographInitialize(iniPath: '')
-ret, arg = ATSpectrograph.ATSpectrographGetSerialNumber({device:0, maxSerialStrLen:20})
+ATSpectrograph.ATSpectrographInitialize(iniPath: '/usr/local/etc/andor')
+#ret, arg = ATSpectrograph.ATSpectrographGetSerialNumber({device:0, maxSerialStrLen:20})
 
 binding.pry
