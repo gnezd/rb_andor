@@ -19,8 +19,8 @@ class RbLib
       @module.const_set("LUT_AC_PIXELMODE", (@header[:constants].filter {|k| k=~ /^AC_PIXELMODE/}).invert.transform_keys {|k| eval(k)})
       @module.const_set("LUT_AC_SETFUNCTION", (@header[:constants].filter {|k| k=~ /^AC_SETFUNCTION/}).invert.transform_keys {|k| eval(k)})
       @module.const_set("LUT_AC_GETFUNCTION", (@header[:constants].filter {|k| k=~ /^AC_GETFUNCTION/}).invert.transform_keys {|k| eval(k)})
-      @module.const_set("LUT_AC_FEATURES", (@header[:constants].filter {|k| k=~ /^AC_FEATURES\_/}).invert.transform_keys {|k| eval(k)})
-      @module.const_set("LUT_AC_EMGAIN", (@header[:constants].filter {|k| k=~ /^AC_EMGAIN/}).invert.transform_keys {|k| eval(k)})
+      @module.const_set("LUT_AC_FEATURE", (@header[:constants].filter {|k| k=~ /^AC_FEATURES\_/}).invert.transform_keys {|k| eval(k)})
+      @module.const_set("LUT_AC_EMGAINCAPABILITY", (@header[:constants].filter {|k| k=~ /^AC_EMGAIN/}).invert.transform_keys {|k| eval(k)})
       @module.const_set("LUT_AC_FEATURES2", (@header[:constants].filter {|k| k=~ /^AC_FEATURES2/}).invert.transform_keys {|k| eval(k)})
     end
     

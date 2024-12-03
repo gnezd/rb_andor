@@ -76,11 +76,28 @@ andorlib.module.module_eval(<<-EOWRAP
   cap[:ulSize] = cap.size
   ret = i_GetCapabilities(cap)
   ret = LUT_DRV[ret]
-  h = {}
+  result = {}
 
-  lut_map = [:ulSize, :ulAcqModes, :ulReadModes, :ulTriggerModes, :ulCameraType, :ulPixelMode, :ulSetFunctions, :ulGetFunctions, :ulFeatures, :ulEMGainCapability, :ulFeatures2].map {|symbol| [symbol, symbol.match(/ul(\S+)s?$/)[1].chomp('s').upcase]}.to_h
+  lut_map = [:ulAcqModes, :ulReadModes, :ulTriggerModes, :ulCameraType, :ulPixelMode, :ulSetFunctions, :ulGetFunctions, :ulFeatures, :ulEMGainCapability, :ulFeatures2]
+  lut_map = (lut_map.map {|symbol| [symbol, symbol.match(/ul(\\S+)s?$/)[1].chomp('s').upcase]}).to_h
+  lut_map[:ulFTReadModes] = lut_map[:ulReadModes]
+  cap.members.each do |member|
+    if lut_map.keys.include? member
+      lut = eval("LUT_AC_\#{lut_map[member]}")
+      if member == :ulCameraType
+        result[member] = lut[cap[member]]
+      else
+        result[member] = []
+        lut.keys.each do |key|
+          result[member].push(lut[key]) if (cap[member] & key > 0)
+        end
+      end
+    else
+      result[member] = cap[member]
+    end
+  end
 
-
+  [ret, result]
  end 
 EOWRAP
 )
