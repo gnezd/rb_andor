@@ -220,6 +220,8 @@ class RbLib
      elsif arg[:pointer] && arg[:type] == 'char'
       # Do nothing. String as :string and not :char pointer for AndorLib
       pointer_types.push [:char, 1] if function[:name] =~ /^ATSpectrograph/
+     elsif arg[:symbol] == 'calibrationValues' # Catch ATSpectrographGetCalibration
+      pointer_types.push [:float, :size]
      else
        pointer_types.push [type_to_native(arg[:type]), 1] # Assume single cell MemoryPointer
      end
@@ -235,6 +237,8 @@ class RbLib
     def self.#{function[:name]}(args_in = {})
       args_in.keys.each do |k|
         if k == :maxDescStrLen || k == :maxSerialStrLen || k == :maxBlazeStrLen || k == :maxInfoLen
+          args_in[:size] = args_in[k]
+        elsif k == :numberPixels # For ATS_GetCalibration
           args_in[:size] = args_in[k]
         end
       end
