@@ -39,7 +39,7 @@ class RbLib
         layout #{layouts.inspect[1..-2]} # Very hacky
       end
       SC_CODE
-      puts struct_class_dec_code
+      #puts struct_class_dec_code
       @module.module_eval struct_class_dec_code
     end
   end
@@ -73,7 +73,7 @@ class RbLib
 
     source.each_index do |ln|
       case source[ln]
-      when /^\/\//
+      when /^(?:\s*)\/\//
         # Comment. Hope it doesn't fall through?
       when /^#/
         preproc_lines.push ln
@@ -196,7 +196,7 @@ class RbLib
     # Plan for pointers
     # If arg_type contains pointers, the wrapper function is responsible of creating them and dereferencing them
     # And return like ret, {ptrname: ptr_derefed_value}
-    debug = true
+    debug = false
     puts "Function #{function[:name]} has arguments: #{function[:args]}" if debug
     
     # Attatch function internal
@@ -222,10 +222,17 @@ class RbLib
       pointer_types.push [:char, 1] if function[:name] =~ /^ATSpectrograph/
      elsif arg[:symbol] == 'calibrationValues' # Catch ATSpectrographGetCalibration
       pointer_types.push [:float, :size]
+     elsif @header[:enums].map{|e| e[:name]}.include? arg[:type] # Treat enum* as int*
+     #elsif arg[:symbol] == 'mode' && function[:name] == 'ATSpectrographGetShutter' # Catch ATSpectrographGetShutter
+     # pointer_types.push [:int, 1]
+     #elsif arg[:symbol] == 'port' && function[:name] == 'ATSpectrographGetFlipperMirror' # Catch ATSpectrographGetFlipperMirror
+      pointer_types.push [:int, 1]
      else
        pointer_types.push [type_to_native(arg[:type]), 1] # Assume single cell MemoryPointer
      end
     end
+
+
     # Wrapper definition needs to do
     # 1. Initiate pointers
     # 2. Fill their values with {args} if key present
